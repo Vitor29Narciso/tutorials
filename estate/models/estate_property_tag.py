@@ -1,18 +1,17 @@
 from odoo import models, fields, api
 from odoo.exceptions import UserError
 
-class EstatePropertyType(models.Model):
-    _name = 'estate.property.type'
-    _description = 'Estate Property Type'
+class EstatePropertyTag(models.Model):
+    _name = 'estate.property.tag'
+    _description = 'Estate Property Tag'
     _order = 'name'
 
     name = fields.Char(string='Name', required=True)
-    property_ids = fields.One2many('estate.property', 'property_type_id', string='Properties')
 
     @api.constrains('name')
-    def _check_type_name_unique(self):
+    def _check_tag_name_unique(self):
         for record in self:
             if record.name:
                 existing = self.search([('name', '=', record.name), ('id', '!=', record.id)])
                 if existing:
-                    raise UserError('A property type name must be unique.')
+                    raise UserError('A property tag name must be unique.')
