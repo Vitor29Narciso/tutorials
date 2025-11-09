@@ -70,7 +70,7 @@
                         </page>
                         <page string="Offers">
                             <field name="offer_ids" readonly="state in ('offer_accepted', 'sold', 'canceled')">
-                                <list>
+                                <list decoration-danger="status == 'refused'" decoration-success="status == 'accepted'">
                                     <field name="price"/>
                                     <field name="partner_id"/>
                                     <field name="validity"/>
