@@ -17,6 +17,7 @@ class EstatePropertyOffer(models.Model):
     date_deadline = fields.Date(string='Deadline', compute='_compute_date_deadline', inverse='_inverse_date_deadline', store=True)
     partner_id = fields.Many2one('res.partner', string='Partner', required=True)
     property_id = fields.Many2one('estate.property', string='Property', required=True)
+    property_type_id = fields.Many2one('estate.property.type', string='Property Type', related='property_id.property_type_id', store=True)
 
     @api.depends('create_date', 'validity')
     def _compute_date_deadline(self):
@@ -48,6 +49,9 @@ class EstatePropertyOffer(models.Model):
             # Set the selling price on the property
             record.property_id.selling_price = record.price
             
+            # Set the buyer from the accepted offer
+            record.property_id.buyer_id = record.partner_id
+            
             # Update property state to offer_accepted
             record.property_id.state = 'offer_accepted'
         return True
@@ -62,3 +66,22 @@ class EstatePropertyOffer(models.Model):
         for record in self:
             if float_compare(record.price, 0.0, precision_digits=2) <= 0:
                 raise UserError('An offer price must be strictly positive.')
+
+    @api.model
+    def create(self, vals_list):
+        for vals in vals_list:
+            # Get the property object
+            property_obj = self.env['estate.property'].browse(vals['property_id'])
+            
+            # Check if offer price is higher than existing offers
+            existing_offers = property_obj.offer_ids
+            if existing_offers:
+                max_existing_price = max(existing_offers.mapped('price'))
+                if float_compare(vals['price'], max_existing_price, precision_digits=2) <= 0:
+                    raise UserError('The offer price must be higher than existing offers.')
+            
+            # Set property state to 'offer_received'
+            if property_obj.state == 'new':
+                property_obj.state = 'offer_received'
+        
+        return super().create(vals_list)

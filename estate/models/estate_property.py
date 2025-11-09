@@ -22,10 +22,10 @@ class EstateProperty(models.Model):
     garden_area = fields.Integer(string='Garden Area (sqm)')
     garden_orientation = fields.Selection(string='Garden Orientation', selection=[('north', 'North'), ('south', 'South'), ('east', 'East'), ('west', 'West')])
     total_area = fields.Integer(string='Total Area (sqm)', compute='_compute_total_area')
-    property_type_id = fields.Many2one('estate.property.type', string='Property Type')
+    property_type_id = fields.Many2one('estate.property.type', string='Property Type', options={'no_create': True, 'no_edit': True})
     buyer_id = fields.Many2one('res.partner', string='Buyer', copy=False)
     salesperson_id = fields.Many2one('res.users', string='Salesperson', default=lambda self: self.env.user)
-    tag_ids = fields.Many2many('estate.property.tag', string='Tags')
+    tag_ids = fields.Many2many('estate.property.tag', string='Tags', options={'color_field': 'color'})
     offer_ids = fields.One2many('estate.property.offer', 'property_id', string='Offers')
     active = fields.Boolean(string='Active', default=True)
     state = fields.Selection(string='State', selection=[('new', 'New'), ('offer_received', 'Offer Received'), ('offer_accepted', 'Offer Accepted'), ('sold', 'Sold'), ('canceled', 'Canceled')], default='new')
@@ -43,6 +43,7 @@ class EstateProperty(models.Model):
             else:
                 record.best_price = 0.0
 
+
     @api.onchange('garden')
     def _onchange_garden(self):
         if self.garden:
@@ -56,14 +57,14 @@ class EstateProperty(models.Model):
         for record in self:
             if record.state == 'sold':
                 raise UserError("Sold properties cannot be cancelled.")
-            record.state = 'canceled'
+            record.with_context(skip_compute=True).write({'state': 'canceled'})
         return True
 
     def action_sold(self):
         for record in self:
             if record.state == 'canceled':
                 raise UserError("Cancelled properties cannot be sold.")
-            record.state = 'sold'
+            record.with_context(skip_compute=True).write({'state': 'sold'})
         return True
 
     @api.constrains('expected_price')
@@ -85,3 +86,9 @@ class EstateProperty(models.Model):
                 min_selling_price = record.expected_price * 0.9
                 if float_compare(record.selling_price, min_selling_price, precision_digits=2) < 0:
                     raise UserError('The selling price cannot be lower than 90% of the expected price.')
+
+    @api.ondelete(at_uninstall=False)
+    def _check_property_state_before_delete(self):
+        for record in self:
+            if record.state not in ('new', 'canceled'):
+                raise UserError("Only properties in 'New' or 'Canceled' state can be deleted.")
